@@ -1,0 +1,175 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+library("devtools")
+install_github("jw156605/SLICER")
+```
+```{r}
+library(Seurat)
+library(readr)
+library(tidyverse)
+```
+
+```{r}
+exp = read_csv("normalized_data.csv")
+exp = discard(exp,~all(is.na(.) |.  == ""))
+exp = distinct(exp, `...1`, .keep_all = TRUE)
+exp = filter(exp, !`...1`%in% c("Mef2c", "Gata4", "Tbx5"))
+```
+
+
+```{r}
+exp = column_to_rownames(exp, var="...1")
+```
+
+
+
+```{r}
+s = CreateSeuratObject(counts = exp)
+s = NormalizeData(s)
+s <- FindVariableFeatures(s, selection.method = "vst")
+s = ScaleData(s, features = rownames(s))
+```
+
+
+```{r}
+s = RunPCA(s, features =  VariableFeatures(s))
+```
+
+```{r}
+our_genes = s[["pca"]]@feature.loadings %>% 
+  data.frame() %>% 
+  select(PC_1, PC_2, PC_3) %>% 
+  mutate(PC_1 = abs(PC_1), PC_2 = abs(PC_2), PC_3 = abs(PC_3), max = pmax(PC_1, PC_2,PC_3), sum = PC_1 + PC_2 + PC_3) %>% 
+  slice_max(order_by = max, n = 400) %>% 
+  row.names() %>% 
+  sort()
+
+our_genes
+
+# PC_1 = PC_1 / sum(PC_1), PC_2 = PC_2 / sum(PC_2), PC_3 = PC_3 / sum(PC_3),
+```
+
+
+```{r}
+correct_genes = read_csv("correct_genes.csv", col_names = FALSE)
+```
+
+```{r}
+(our_genes %in% correct_genes$X1) %>% mean()
+```
+
+
+```{r}
+library(HGC) 
+top_genes = exp[our_genes,]
+top_genes = t(top_genes) 
+SNN = SNN.Construction(mat = t(top_genes), k = 3, threshold = 0.15)
+Clustering_Tree = HGC.dendrogram(SNN)
+HGC.PlotDendrogram(tree = Clustering_Tree,
+                    k = 3, plot.label = FALSE)
+```
+```{r}
+ require(pheatmap)
+ normalize = function(x) {
+   (x - mean(x)) / (sd(x))
+ }
+top_genes_norm = t(scale(t(log(top_genes + 1e-6)))) %>% data.frame()
+# pheatmap(mat = top_genes_norm, cluster_rows = Clustering_Tree, 
+#         cluster_cols = FALSE, show_rownames = FALSE)
+```
+```{r}
+SNN_row = SNN.Construction(mat = top_genes_norm, k = 2, threshold = 0.15)
+Clustering_Tree_row = HGC.dendrogram(SNN_row)
+SNN_col = SNN.Construction(mat = t(top_genes_norm), k = 3, threshold = 0.15)
+Clustering_Tree_col = HGC.dendrogram(SNN_col)
+
+library(latticeExtra)
+dd.row = as.dendrogram(Clustering_Tree_row)
+row.ord = order.dendrogram(dd.row)
+
+dd.col = as.dendrogram(Clustering_Tree_col)
+col.ord = order.dendrogram(dd.col)
+```
+
+
+```{r}
+top_genes_norm_mat = as.matrix(top_genes_norm)
+library(lattice) 
+library(RColorBrewer)
+levelplot(top_genes_norm_mat[row.ord, col.ord],
+      aspect = "fill",
+      scales = list(x = list(rot = 90)),
+      colorkey = list(space = "left"), 
+      col.regions = colorRampPalette(c("royalblue", "white", "red")))
+
+                                     
+                                     
+# heat.colors(100))
+```
+
+```{r}
+```
+
+
+```{r}
+pheatmap(t(top_genes_norm_mat[row.ord, col.ord]), 
+        color=colorRampPalette(c("royalblue", "white", "red"))(50), annotation_row = gene_labeling)
+```
+
+
+```{r}
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("clusterProfiler")
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("AnnotationDbi")
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("org.Mm.eg.db")
+```
+ 
+
+```{r}
+library(clusterProfiler)
+library(org.Mm.eg.db)
+library(AnnotationDbi)
+```
+
+```{r}
+clusters <- cutree(Clustering_Tree, k =3 )
+cardiofibroblasts = colnames(top_genes)[clusters == 1]
+GO_results <- enrichGO(gene = cardiofibroblasts, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
+as.data.frame(GO_results)
+
+cell_cycle = colnames(top_genes)[clusters == 2]
+GO_results <- enrichGO(gene = cell_cycle, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
+as.data.frame(GO_results)
+
+fibroblasts = colnames(top_genes)[clusters == 3]
+GO_results <- enrichGO(gene = fibroblasts, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
+as.data.frame(GO_results)
+```
+```{r}
+gene_labeling = data.frame(matrix(ncol = 1, nrow = length(colnames(top_genes))))
+colnames(gene_labeling) = "label"
+rownames(gene_labeling) = colnames(top_genes)
+gene_labeling[cardiofibroblasts,] = "cf"
+gene_labeling[fibroblasts,] = "fib"
+gene_labeling[cell_cycle,] = "cc"
+
+gene_labeling[col.ord, ]
+
+```
+
+
+

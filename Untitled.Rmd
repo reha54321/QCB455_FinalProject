@@ -1,0 +1,136 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+library("devtools")
+install_github("jw156605/SLICER")
+```
+```{r}
+library(Seurat)
+library(readr)
+library(tidyverse)
+```
+
+```{r}
+exp = read_csv("normalized_data.csv")
+exp = discard(exp,~all(is.na(.) |.  == ""))
+exp = distinct(exp, `...1`, .keep_all = TRUE)
+exp = filter(exp, !`...1`%in% c("Mef2c", "Gata4", "Tbx5"))
+```
+
+
+```{r}
+exp = column_to_rownames(exp, var="...1")
+```
+
+
+
+```{r}
+s = CreateSeuratObject(counts = exp)
+s = NormalizeData(s)
+s <- FindVariableFeatures(s, selection.method = "vst")
+s = ScaleData(s, features = rownames(s))
+```
+
+
+```{r}
+s = RunPCA(s, features =  VariableFeatures(s))
+```
+
+```{r}
+our_genes = s[["pca"]]@feature.loadings %>% 
+  data.frame() %>% 
+  select(PC_1, PC_2, PC_3) %>% 
+  mutate(PC_1 = abs(PC_1), PC_2 = abs(PC_2), PC_3 = abs(PC_3), max = pmax(PC_1, PC_2,PC_3), sum = PC_1 + PC_2 + PC_3) %>% 
+  slice_max(order_by = max, n = 400) %>% 
+  row.names() %>% 
+  sort()
+
+our_genes
+
+# PC_1 = PC_1 / sum(PC_1), PC_2 = PC_2 / sum(PC_2), PC_3 = PC_3 / sum(PC_3),
+```
+
+
+```{r}
+correct_genes = read_csv("correct_genes.csv", col_names = FALSE)
+```
+
+```{r}
+(our_genes %in% correct_genes$X1) %>% mean()
+```
+
+
+```{r}
+library(HGC) 
+top_genes = exp[our_genes,]
+top_genes = t(top_genes) 
+SNN = SNN.Construction(mat = top_genes, k = 3, threshold = 0.15)
+Clustering_Tree = HGC.dendrogram(SNN)
+HGC.PlotDendrogram(tree = Clustering_Tree,
+                    k = 3, plot.label = FALSE)
+```
+```{r}
+require(pheatmap)
+normalize = function(x) {
+  (x - mean(x)) / (sd(x))
+}
+top_genes_norm = t(scale(t(log(top_genes + 1e-6)))) %>% data.frame()
+pheatmap(mat = top_genes_norm, cluster_rows = Clustering_Tree, 
+        cluster_cols = FALSE, show_rownames = FALSE)
+```
+```{r}
+SNN_row = SNN.Construction(mat = top_genes_norm, k = 3, threshold = 0.15)
+Clustering_Tree_row = HGC.dendrogram(SNN_row)
+SNN_col = SNN.Construction(mat = t(top_genes_norm), k = 3, threshold = 0.15)
+Clustering_Tree_col = HGC.dendrogram(SNN_col)
+
+library(latticeExtra)
+dd.row = as.dendrogram(Clustering_Tree_row)
+row.ord = order.dendrogram(dd.row)
+
+dd.col = as.dendrogram(Clustering_Tree_col)
+col.ord = order.dendrogram(dd.col)
+```
+
+
+```{r}
+top_genes_norm_mat = as.matrix(top_genes_norm)
+library(lattice) 
+library(RColorBrewer)
+levelplot(top_genes_norm_mat[row.ord, col.ord],
+      aspect = "fill",
+      scales = list(x = list(rot = 90)),
+      colorkey = list(space = "left"), 
+      col.regions = colorRampPalette(c("royalblue", "white", "red")))# heat.colors(100))
+```
+
+```{r}
+list(right =
+           list(fun = dendrogramGrob,
+                args =
+                list(x = dd.col, ord = col.ord,
+                     side = "right",
+                     size = 10)),
+           top =
+           list(fun = dendrogramGrob,
+                args =
+                list(x = dd.row,
+                     side = "top",
+                     size = 10))
+```
+
+ 
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
