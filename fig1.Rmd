@@ -74,6 +74,8 @@ our_genes = s[["pca"]]@feature.loadings %>%
 
 our_genes
 
+capture.output(our_genes, file = "top_genes.txt", row.names = FALSE)
+
 # PC_1 = PC_1 / sum(PC_1), PC_2 = PC_2 / sum(PC_2), PC_3 = PC_3 / sum(PC_3),
 ```
 

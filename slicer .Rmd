@@ -1,0 +1,45 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+# loading in SLICER packages
+library("devtools")
+install_github("jw156605/SLICER")
+library(SLICER)
+library(lle)
+```
+
+
+```{r}
+# finding the number of initial clusters for reconstructing the trajectory
+k = select_k(top_genes_norm, kmin = 3)
+```
+```{r}
+# performing LLE a form of dimensionality reduction on the gene expression data
+# m = 3 bc that is the number of dimensions used in the figures in the paper 
+traj_lle = lle(top_genes_norm, m=3, k)$Y
+```
+
+
+```{r}
+# build a knearest neighbor graph to find the distances betwen cells
+traj_graph = conn_knn_graph(traj_lle, k)
+```
+```{r}
+# constructing the cell order and finding branches in the trajectory 
+ends = find_extreme_cells(traj_graph, traj_lle)
+start = 1 # needs to be changed to a known cardiac fibroblast 
+cells_ordered = cell_order(traj_graph, start)
+graph_process_distance(traj_graph,traj_lle,start)
+branches = assign_branches(traj_graph,start)
+```
+
+
+
+
+
+
+
+
