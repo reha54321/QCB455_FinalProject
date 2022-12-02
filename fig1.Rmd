@@ -1,26 +1,70 @@
 ---
-title: "R Notebook"
-output: html_notebook
+title: "Untitled"
+author: "Kenny Huang"
+date: "12/2/2022"
+output: html_document
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 12, fig.height = 8, cache = TRUE, autodep = TRUE)
+```
 
 ## installing packages and loading libraries 
 
 ```{r}
-library("devtools")
-install_github("jw156605/SLICER")
+if (!require("BiocManager", quietly = TRUE)) {
+    install.packages("BiocManager")
+}
+
+if (!require("Seurat", quietly = TRUE)) {
+    BiocManager::install("Seurat")
+}
+
+if (!require("HGC", quietly = TRUE)) {
+    BiocManager::install("HGC")
+}
+
+if (!require("lattice", quietly = TRUE)) {
+    BiocManager::install("lattice")
+}
+
+if (!require("latticeExtra", quietly = TRUE)) {
+    BiocManager::install("latticeExtra")
+}
+
+if (!require("org.Mm.eg.db", quietly = TRUE)) {
+    BiocManager::install("org.Mm.eg.db")
+}
+
+if (!require("clusterProfiler", quietly = TRUE)) {
+    BiocManager::install("clusterProfiler")
+}
+
+if (!require("AnnotationDbi", quietly = TRUE)) {
+    BiocManager::install("AnnotationDbi")
+}
+
+if (!require("AnnotationDbi", quietly = TRUE)) {
+    install.packages("pheatmap")
+}
 ```
 
+
 ```{r}
-library(Seurat)
 library(readr)
 library(tidyverse)
-library(HGC) 
-library(latticeExtra)
-library(lattice) 
 library(RColorBrewer)
-library(clusterProfiler)
+library(Seurat)
+library(HGC)
+library(lattice)
+library(latticeExtra)
 library(org.Mm.eg.db)
+library(clusterProfiler)
 library(AnnotationDbi)
+library(pheatmap)
+library(devtools)
+
+install_github("jw156605/SLICER")
 
 
 # if (!require("BiocManager", quietly = TRUE))
@@ -39,11 +83,11 @@ library(AnnotationDbi)
 ```{r}
 exp = read_csv("normalized_data.csv")
 exp = discard(exp,~all(is.na(.) |.  == ""))
-exp = distinct(exp, `...1`, .keep_all = TRUE)
+exp = rename(exp, GeneID = `...1`)
+exp = distinct(exp, GeneID, .keep_all = TRUE)
 # filtering out the reprogramming transcription factors 
-exp = filter(exp, !`...1`%in% c("Mef2c", "Gata4", "Tbx5"))
-exp = column_to_rownames(exp, var="...1")
-
+exp = filter(exp, !`GeneID`%in% c("Mef2c", "Gata4", "Tbx5"))
+exp = column_to_rownames(exp, var="GeneID")
 ```
 
 ## creating seurat object 
@@ -67,8 +111,8 @@ s = RunPCA(s, features =  VariableFeatures(s))
 our_genes = s[["pca"]]@feature.loadings %>% 
   data.frame() %>% 
   dplyr::select(PC_1, PC_2, PC_3) %>% 
-  mutate(PC_1 = abs(PC_1), PC_2 = abs(PC_2), PC_3 = abs(PC_3), max = pmax(PC_1, PC_2,PC_3), sum = PC_1 + PC_2 + PC_3) %>% 
-  slice_max(order_by = max, n = 400) %>% 
+  mutate(PC_1 = abs(PC_1), PC_2 = abs(PC_2), PC_3 = abs(PC_3), max = pmax(PC_1, PC_2, PC_3), absmax = pmax(abs(PC_1), abs(PC_2), abs(PC_3)), sum = PC_1 + PC_2 + PC_3) %>% 
+  slice_max(order_by = max, n = 400) %>% #PC_1 = abs(PC_1), PC_2 = abs(PC_2), PC_3 = abs(PC_3),
   row.names() %>% 
   sort()
 
@@ -90,7 +134,7 @@ correct_genes = read_csv("correct_genes.csv", col_names = FALSE)
 ## clustering our top genes into a tree 
 
 ```{r}
-# testing out clustering of the non normalize dgenes 
+# testing out clustering of the non normalized genes 
 top_genes = exp[our_genes,]
 top_genes = t(top_genes) 
 SNN = SNN.Construction(mat = t(top_genes), k = 3, threshold = 0.15)
@@ -100,11 +144,9 @@ HGC.PlotDendrogram(tree = Clustering_Tree,
 ```
 ```{r}
 # normalizing the genes 
- require(pheatmap)
- normalize = function(x) {
-   (x - mean(x)) / (sd(x))
- }
 top_genes_norm = t(scale(t(log(top_genes + 1e-6)))) %>% data.frame()
+# top_genes_norm = t(scale(t(top_genes))) %>% data.frame()
+# top_genes_norm = top_genes
 # pheatmap(mat = top_genes_norm, cluster_rows = Clustering_Tree, 
 #         cluster_cols = FALSE, show_rownames = FALSE)
 ```
@@ -127,18 +169,18 @@ col.ord = order.dendrogram(dd.col)
 
 ```{r}
 # cutting the genes in the 3 clusters and performing gene ontology analysis 
-clusters <- cutree(Clustering_Tree, k =3 )
+clusters <- cutree(Clustering_Tree, k = 3)
 cluster1 = colnames(top_genes)[clusters == 1]
 GO_results_cluster1 <- enrichGO(gene = cluster1, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
-as.data.frame(GO_results)
+as.data.frame(GO_results_cluster1)
 
 cluster2 = colnames(top_genes)[clusters == 2]
 GO_results_cluster2 <- enrichGO(gene = cluster2, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
-as.data.frame(GO_results)
+as.data.frame(GO_results_cluster2)
 
 cluster3 = colnames(top_genes)[clusters == 3]
 GO_results_cluster3 <- enrichGO(gene = cluster3, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
-as.data.frame(GO_results)
+as.data.frame(GO_results_cluster3)
 ```
 
 ```{r}
@@ -158,8 +200,8 @@ gene_labeling = data.frame(matrix(ncol = 1, nrow = length(colnames(top_genes))))
 colnames(gene_labeling) = "label"
 rownames(gene_labeling) = colnames(top_genes)
 gene_labeling[cluster1,] = "cf"
-gene_labeling[cluster3,] = "fib"
 gene_labeling[cluster2,] = "cc"
+gene_labeling[cluster3,] = "fib"
 
 gene_labeling[col.ord, ]
 ```
