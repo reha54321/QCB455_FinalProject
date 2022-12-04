@@ -1,0 +1,160 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+library("devtools")
+install_github("jw156605/SLICER")
+library(Seurat)
+library(readr)
+library(tidyverse)
+library(HGC) 
+library(latticeExtra)
+library(lattice) 
+library(RColorBrewer)
+library(clusterProfiler)
+library(org.Mm.eg.db)
+library(AnnotationDbi)
+exp = read_csv("normalized_data.csv")
+exp = discard(exp,~all(is.na(.) |.  == ""))
+exp = distinct(exp, `...1`, .keep_all = TRUE)
+# filtering out the reprogramming transcription factors 
+exp = filter(exp, !`...1`%in% c("Mef2c", "Gata4", "Tbx5"))
+exp = column_to_rownames(exp, var="...1")
+
+```
+```{r}
+
+seurat.obj = CreateSeuratObject(counts = exp)
+```
+```{r}
+seurat.obj = NormalizeData(seurat.obj)
+seurat.obj = FindVariableFeatures(seurat.obj, selection.method =  "vst", nfeatures = 10000)
+all.genes = rownames(seurat.obj)
+seurat.obj = ScaleData(seurat.obj, features = all.genes)
+seurat.obj = RunPCA(seurat.obj, features =  VariableFeatures(seurat.obj))
+
+```
+```{r}
+ElbowPlot(seurat.obj)
+```
+
+```{r}
+seurat.obj = FindNeighbors(seurat.obj, dims = 1:15)
+```
+
+```{r}
+seurat.obj = FindClusters(seurat.obj, resolution = 1.75)
+```
+```{r}
+identified_cells = read.csv("paper_cell_states.csv", row.names = 1, header=TRUE)
+```
+```{r}
+identified_cells = identified_cells[match(rownames(seurat.obj@meta.data), rownames(identified_cells)),]
+seurat.obj@meta.data$cc_paper = identified_cells$CC
+
+```
+
+```{r}
+clusters = DimPlot(seurat.obj, group.by = "RNA_snn_res.1.75", label = TRUE)
+condition = DimPlot(seurat.obj, group.by = "cc_paper", label = TRUE)
+
+condition|clusters
+```
+```{r}
+Idents(seurat.obj)  = "RNA_snn_res.1.75"
+```
+
+```{r}
+seurat.obj = RunUMAP(seurat.obj, dims = 1:15)
+clusters = DimPlot(seurat.obj, group.by = "RNA_snn_res.1.75", label = TRUE, reduction = "umap")
+condition = DimPlot(seurat.obj, group.by = "cc_paper", label = TRUE, reduction = "umap")
+
+condition|clusters
+```
+```{r}
+seurat.obj = RunTSNE(seurat.obj, dims = 1:15)
+DimPlot(seurat.obj, reduction = "tsne", group.by = 'RNA_snn_res.1.75')
+``` 
+
+```{r}
+markers = FindAllMarkers(seurat.obj, logfc.threshold =  0.25, min.pct = 0.1, only.pos = FALSE, test.use = 'MAST')
+```
+```{r}
+top_markers = markers %>%
+    group_by(cluster) %>%
+    slice_max(n = 2, order_by = avg_log2FC)
+```
+
+```{r}
+FeaturePlot(seurat.obj, features = c("Dhrs3"), min.cutoff = 'q10')
+```
+```{r}
+VlnPlot(seurat.obj, features = c("Rbp1", "Dhrs3"))
+VlnPlot(seurat.obj, features = c("Fstl1", "Bgn"))
+VlnPlot(seurat.obj, features = c("Serpinh1", "Dsp"))
+VlnPlot(seurat.obj, features = c("Prc1", "Birc5"))
+```
+```{r}
+## cell cycle 
+s.genes <- str_to_title(cc.genes$s.genes)
+g2m.genes <- str_to_title(cc.genes$g2m.genes)
+
+seurat.obj = CellCycleScoring(seurat.obj, s.features = s.genes, g2m.features = g2m.genes)
+```
+
+
+ 
+
+
+```{r}
+clusters = DimPlot(seurat.obj, group.by = "cc", label = TRUE, reduction = "umap")
+real_condition = DimPlot(seurat.obj, group.by = "cc_paper", label = TRUE, reduction = "umap") 
+
+clusters|real_condition
+
+
+```
+
+```{r}
+seurat_normalized = as.data.frame(GetAssayData(object = seurat.obj, slot = "data"))
+```
+
+```{r}
+seurat_normalized["Top2a", ]
+```
+## SC Transform       
+```{r}
+seurat.sc = CreateSeuratObject(counts = exp)
+seurat.sc = SCTransform(seurat.sc)
+```
+```{r}
+seurat.sc = RunPCA(seurat.sc, features =  VariableFeatures(seurat.sc))
+```
+
+```{r}
+identified_cells = identified_cells[match(rownames(seurat.sc@meta.data), rownames(identified_cells)),]
+seurat.sc@meta.data$cc_paper = identified_cells$CC
+seurat.sc = RunUMAP(seurat.sc, dims = 1:15)
+seurat.sc = FindNeighbors(seurat.sc, dims = 1:15)
+seurat.sc = FindClusters(seurat.sc, resolution = 1.75)
+```
+
+```{r}
+seurat.sc = CellCycleScoring(seurat.sc, s.features = s.genes, g2m.features = g2m.genes)
+```
+
+```{r}
+clusters = DimPlot(seurat.sc, group.by = "SCT_snn_res.1.75", label = TRUE, reduction = "umap")
+real_condition = DimPlot(seurat.sc, group.by = "cc_paper", label = TRUE, reduction = "umap") 
+phase = DimPlot(seurat.sc, group.by = "Phase", label = TRUE, reduction = "umap") 
+
+clusters|real_condition|phase
+
+```
+

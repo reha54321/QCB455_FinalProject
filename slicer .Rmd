@@ -33,13 +33,43 @@ ends = find_extreme_cells(traj_graph, traj_lle)
 start = 1 # needs to be changed to a known cardiac fibroblast 
 cells_ordered = cell_order(traj_graph, start)
 graph_process_distance(traj_graph,traj_lle,start)
-branches = assign_branches(traj_graph,start)
+branches = assign_branches(traj_graph,start, min_branch_len = 30)
 ```
 
 
 
+```{r}
+distances = process_distance(traj_graph, 192)
+```
+```{r}
+scatterplot3d(traj_lle[,1],traj_lle[,3],traj_lle[,2], grid = FALSE)
+```
+
+```{r}
+library(rgl)
+library(plotly)
+```
+
+```{r}
+plot3d(traj_lle[,1],traj_lle[,3],traj_lle[,2],type = "s", size = 1, lit = TRUE) 
+```
 
 
+```{r}
+lle_df = data.frame(traj_lle )
+lle_df$dist = as.double(t(distances))
+```
 
 
+```{r}
+fig <- plot_ly(lle_df, x = ~X1, y = ~X2, z = ~X3, marker = list(color = ~dist, colorscale = c('#FFE1A1', '#683531'), showscale = TRUE))
+fig <- fig %>% add_markers()
+fig <- fig %>% layout(scene = list(aspectmode = "cube"))
+fig
+```
+
+```{r}
+plot(traj_lle,pch=16,col=branches)
+
+```
 

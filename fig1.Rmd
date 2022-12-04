@@ -1,71 +1,29 @@
 ---
-title: "Untitled"
-author: "Kenny Huang"
-date: "12/2/2022"
-output: html_document
+title: "R Notebook"
+output: html_notebook
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, fig.width = 12, fig.height = 8, cache = TRUE, autodep = TRUE)
-```
 
 ## installing packages and loading libraries 
 
 ```{r}
-if (!require("BiocManager", quietly = TRUE)) {
-    install.packages("BiocManager")
-}
-
-if (!require("Seurat", quietly = TRUE)) {
-    BiocManager::install("Seurat")
-}
-
-if (!require("HGC", quietly = TRUE)) {
-    BiocManager::install("HGC")
-}
-
-if (!require("lattice", quietly = TRUE)) {
-    BiocManager::install("lattice")
-}
-
-if (!require("latticeExtra", quietly = TRUE)) {
-    BiocManager::install("latticeExtra")
-}
-
-if (!require("org.Mm.eg.db", quietly = TRUE)) {
-    BiocManager::install("org.Mm.eg.db")
-}
-
-if (!require("clusterProfiler", quietly = TRUE)) {
-    BiocManager::install("clusterProfiler")
-}
-
-if (!require("AnnotationDbi", quietly = TRUE)) {
-    BiocManager::install("AnnotationDbi")
-}
-
-if (!require("AnnotationDbi", quietly = TRUE)) {
-    install.packages("pheatmap")
-}
+library("devtools")
+install_github("jw156605/SLICER")
 ```
 
-
 ```{r}
+library(Seurat)
 library(readr)
 library(tidyverse)
-library(RColorBrewer)
-library(Seurat)
-library(HGC)
-library(lattice)
+library(HGC) 
 library(latticeExtra)
-library(org.Mm.eg.db)
+library(lattice) 
+library(RColorBrewer)
 library(clusterProfiler)
+library(org.Mm.eg.db)
 library(AnnotationDbi)
-library(pheatmap)
-library(devtools)
-
-install_github("jw156605/SLICER")
-
+library(ComplexHeatmap)
+library(dendextend)
+library('fastcluster')
 
 # if (!require("BiocManager", quietly = TRUE))
 #     install.packages("BiocManager")
@@ -83,26 +41,37 @@ install_github("jw156605/SLICER")
 ```{r}
 exp = read_csv("normalized_data.csv")
 exp = discard(exp,~all(is.na(.) |.  == ""))
-exp = rename(exp, GeneID = `...1`)
-exp = distinct(exp, GeneID, .keep_all = TRUE)
+exp = distinct(exp, `...1`, .keep_all = TRUE)
 # filtering out the reprogramming transcription factors 
-exp = filter(exp, !`GeneID`%in% c("Mef2c", "Gata4", "Tbx5"))
-exp = column_to_rownames(exp, var="GeneID")
+exp = filter(exp, !`...1`%in% c("Mef2c", "Gata4", "Tbx5"))
+exp = column_to_rownames(exp, var="...1")
+```
+
+
+```{r}
+exp_log2 = log2(exp)
+exp_log2[exp_log2 < 0] <- 0
 ```
 
 ## creating seurat object 
 
 ```{r}
+exp_log2_mat = as.matrix(exp_log2)
+```
+
+
+```{r}
 s = CreateSeuratObject(counts = exp)
-s = NormalizeData(s)
-s <- FindVariableFeatures(s, selection.method = "vst")
-s = ScaleData(s, features = rownames(s))
+#s = NormalizeData(s)
+s = SetAssayData(object = s, slot = "scale.data", new.data = exp_log2_mat)
+s <- FindVariableFeatures(s, selection.method = "vst", nfeatures = 10000)
+#s = ScaleData(s, features = rownames(s))
 ```
 
 ## running PCA on seurat object 
 
 ```{r}
-s = RunPCA(s, features =  VariableFeatures(s))
+s = RunPCA(s, features  = VariableFeatures(s))
 ```
 
 ## extracting top 400 by max weights
@@ -110,13 +79,11 @@ s = RunPCA(s, features =  VariableFeatures(s))
 ```{r}
 our_genes = s[["pca"]]@feature.loadings %>% 
   data.frame() %>% 
-  dplyr::select(PC_1, PC_2, PC_3) %>% 
-  mutate(PC_1 = abs(PC_1), PC_2 = abs(PC_2), PC_3 = abs(PC_3), max = pmax(PC_1, PC_2, PC_3), absmax = pmax(abs(PC_1), abs(PC_2), abs(PC_3)), sum = PC_1 + PC_2 + PC_3) %>% 
-  slice_max(order_by = max, n = 400) %>% #PC_1 = abs(PC_1), PC_2 = abs(PC_2), PC_3 = abs(PC_3),
+  dplyr::select(PC_1, PC_2, PC_3, PC_4) %>% 
+  mutate(PC_1 = abs(PC_1), PC_2 = abs(PC_2), PC_3 = abs(PC_3), max = pmax(PC_1, PC_2,PC_3), sum = PC_1 + PC_2 + PC_3) %>% 
+  slice_max(order_by = max, n = 400) %>% 
   row.names() %>% 
   sort()
-
-our_genes
 
 capture.output(our_genes, file = "top_genes.txt", row.names = FALSE)
 
@@ -129,64 +96,91 @@ correct_genes = read_csv("correct_genes.csv", col_names = FALSE)
 (our_genes %in% correct_genes$X1) %>% mean()
 
 ```
+```{r}
+top_genes = exp_log2[our_genes,] %>% data.frame()
+top_genes = t(top_genes) 
+```
 
-
+# old clustering stuff
 ## clustering our top genes into a tree 
 
 ```{r}
-# testing out clustering of the non normalized genes 
-top_genes = exp[our_genes,]
-top_genes = t(top_genes) 
-SNN = SNN.Construction(mat = t(top_genes), k = 3, threshold = 0.15)
-Clustering_Tree = HGC.dendrogram(SNN)
-HGC.PlotDendrogram(tree = Clustering_Tree,
-                    k = 3, plot.label = FALSE)
+# testing out clustering of the non normalize dgenes 
+#top_genes = exp_log2[our_genes,] %>% data.frame()
+#top_genes = t(top_genes) 
+#SNN = SNN.Construction(mat = t(top_genes), k = 3, threshold = 0.1)
+#Clustering_Tree = HGC.dendrogram(SNN)
+#HGC.PlotDendrogram(tree = Clustering_Tree,
+           #         k = 3, plot.label = FALSE)
 ```
+
+```{r}
+#SNN = SNN.Construction(mat = top_genes_norm, k = 3, threshold = 0.15)
+#Clustering_Tree = HGC.dendrogram(SNN)
+#HGC.PlotDendrogram(tree = Clustering_Tree,
+                  #  k = 3, plot.label = FALSE)
+#cell_clusters <- cutree(Clustering_Tree, k = 3)
+
+```
+
+```{r}
+#active_cells = rownames(top_genes_log)[cell_clusters == 1]
+```
+
 ```{r}
 # normalizing the genes 
-top_genes_norm = t(scale(t(log(top_genes + 1e-6)))) %>% data.frame()
-# top_genes_norm = t(scale(t(top_genes))) %>% data.frame()
-# top_genes_norm = top_genes
+ require(pheatmap)
+ normalize = function(x) {
+   (x - mean(x)) / (sd(x))
+ }
+#top_genes_log = (log(top_genes + 1e-6)) %>% data.frame()
+#top_genes_norm = t(scale(t(log(top_genes + 1e-6)))) %>% data.frame()
 # pheatmap(mat = top_genes_norm, cluster_rows = Clustering_Tree, 
 #         cluster_cols = FALSE, show_rownames = FALSE)
 ```
+
 ```{r}
 
 # 2d clustering 
-SNN_row = SNN.Construction(mat = top_genes_norm, k = 2, threshold = 0.15)
-Clustering_Tree_row = HGC.dendrogram(SNN_row)
-SNN_col = SNN.Construction(mat = t(top_genes_norm), k = 3, threshold = 0.15)
-Clustering_Tree_col = HGC.dendrogram(SNN_col)
+#SNN_row = SNN.Construction(mat = top_genes_scale, k = 2, threshold = 0.15)
+#Clustering_Tree_row = HGC.dendrogram(SNN_row)
+#SNN_col = SNN.Construction(mat = t(top_genes_scale), k = 3, threshold = 0.15)
+#Clustering_Tree_col = HGC.dendrogram(SNN_col)
 
-dd.row = as.dendrogram(Clustering_Tree_row)
-row.ord = order.dendrogram(dd.row)
+#dd.row = as.dendrogram(Clustering_Tree_row)
+#row.ord = order.dendrogram(dd.row)
 
-dd.col = as.dendrogram(Clustering_Tree_col)
-col.ord = order.dendrogram(dd.col)
+#dd.col = as.dendrogram(Clustering_Tree_col)
+#col.ord = order.dendrogram(dd.col)
+#HGC.PlotDendrogram(tree = Clustering_Tree_col, k = 4, plot.label = FALSE)
+```
+
+```{r}
+top_genes_scale = scale(top_genes)
 ```
 
 ## Gene ontology anlaysis 
 
 ```{r}
 # cutting the genes in the 3 clusters and performing gene ontology analysis 
-clusters <- cutree(Clustering_Tree, k = 3)
-cluster1 = colnames(top_genes)[clusters == 1]
-GO_results_cluster1 <- enrichGO(gene = cluster1, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
-as.data.frame(GO_results_cluster1)
+#clusters <- cutree(Clustering_Tree_col, k = 3)
+#cluster1 = colnames(top_genes_scale)[clusters == 1]
+#GO_results_cluster1 <- enrichGO(gene = cluster1, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
+#as.data.frame(GO_results_cluster1)
 
-cluster2 = colnames(top_genes)[clusters == 2]
-GO_results_cluster2 <- enrichGO(gene = cluster2, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
-as.data.frame(GO_results_cluster2)
+#cluster2 = colnames(top_genes_scale)[clusters == 2]
+#GO_results_cluster2 <- enrichGO(gene = cluster2, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
+#as.data.frame(GO_results_cluster2)
 
-cluster3 = colnames(top_genes)[clusters == 3]
-GO_results_cluster3 <- enrichGO(gene = cluster3, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
-as.data.frame(GO_results_cluster3)
+#cluster3 = colnames(top_genes_scale)[clusters == 3]
+#GO_results_cluster3 <- enrichGO(gene = cluster3, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = #"BP")
+#as.data.frame(GO_results_cluster3)
 ```
 
 ```{r}
-fit <- plot(barplot(GO_results_cluster1, showCategory = 15))
-fit <- plot(barplot(GO_results_cluster2, showCategory = 15))
-fit <- plot(barplot(GO_results_cluster3, showCategory = 15))
+#fit <- plot(barplot(GO_results_cluster1, showCategory = 15))
+#fit <- plot(barplot(GO_results_cluster2, showCategory = 15))
+#fit <- plot(barplot(GO_results_cluster3, showCategory = 15))
 
 #png("out.png", res = 250, width = 1400, height = 1800)
 #print(fit)
@@ -196,14 +190,16 @@ fit <- plot(barplot(GO_results_cluster3, showCategory = 15))
 
 ```{r}
 # defining gene labels to put on the heat map -- WIP 
-gene_labeling = data.frame(matrix(ncol = 1, nrow = length(colnames(top_genes))))
-colnames(gene_labeling) = "label"
-rownames(gene_labeling) = colnames(top_genes)
-gene_labeling[cluster1,] = "cf"
-gene_labeling[cluster2,] = "cc"
-gene_labeling[cluster3,] = "fib"
+#gene_labeling = data.frame(matrix(ncol = 1, nrow = length(colnames(top_genes_scale))))
+#colnames(gene_labeling) = "label"
+#rownames(gene_labeling) = colnames(top_genes_scale)
+#gene_labeling[cluster1,] = "cm"
+#gene_labeling[cluster3,] = "fib"
+#gene_labeling[cluster2,] = "cc"
 
-gene_labeling[col.ord, ]
+#gene_labeling[col.ord, ]
+
+#gene_labeling['Ect2',]
 ```
 
 
@@ -211,28 +207,65 @@ gene_labeling[col.ord, ]
 
 ```{r}
 # plotting the data on lattice level plot 
-top_genes_norm_mat = as.matrix(top_genes_norm)
+#top_genes_norm_mat = as.matrix(top_genes_scale)
 
-levelplot(top_genes_norm_mat[row.ord, col.ord],
-      aspect = "fill",
-      scales = list(x = list(rot = 90)),
-      colorkey = list(space = "left"), 
-      col.regions = colorRampPalette(c("royalblue", "white", "red")))
+#levelplot(top_genes_norm_mat[row.ord, col.ord],
+  #    aspect = "fill",
+  #    scales = list(x = list(rot = 90)),
+  #    colorkey = list(space = "left"), 
+  #    col.regions = colorRampPalette(c("royalblue", "white", "red")))
 
                                      
                                      
 # heat.colors(100))
 ```
 
+# fixed clustering
+```{r}
+row_dend = hclust(dist(top_genes_scale)) # row clustering
+col_dend = hclust(dist(t(top_genes_scale))) # column clustering
+```
+```{r}
+clusters <- cutree(col_dend, k = 3)
+cluster1 = colnames(top_genes_scale)[clusters == 1]
+GO_results_cluster1 <- enrichGO(gene = cluster1, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
+as.data.frame(GO_results_cluster1)
+
+cluster2 = colnames(top_genes_scale)[clusters == 2]
+GO_results_cluster2 <- enrichGO(gene = cluster2, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
+as.data.frame(GO_results_cluster2)
+
+cluster3 = colnames(top_genes_scale)[clusters == 3]
+GO_results_cluster3 <- enrichGO(gene = cluster3, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
+as.data.frame(GO_results_cluster3)
+
+```
+
+```{r}
+dd.col = as.dendrogram(col_dend)
+col.ord = order.dendrogram(dd.col)
+fit <- plot(barplot(GO_results_cluster1, showCategory = 15))
+fit <- plot(barplot(GO_results_cluster2, showCategory = 15))
+fit <- plot(barplot(GO_results_cluster3, showCategory = 15))
+
+gene_labeling = data.frame(matrix(ncol = 1, nrow = length(colnames(top_genes_scale))))
+colnames(gene_labeling) = "label"
+rownames(gene_labeling) = colnames(top_genes_scale)
+gene_labeling[cluster1,] = "fibroblast"
+gene_labeling[cluster3,] = "cardiomyocyte"
+gene_labeling[cluster2,] = "cell cycle"
+
+gene_labeling[col.ord, ]
+
+```
+
 
 
 
 ```{r}
-# using a heat map to plot the data 
-pheatmap(t(top_genes_norm_mat[row.ord, col.ord]), 
-        color=colorRampPalette(c("royalblue", "white", "red"))(50), annotation_row = gene_labeling)
+Heatmap(t(top_genes_scale), name = "test", 
+        cluster_rows = color_branches(col_dend, k = 3),
+        cluster_columns = color_branches(row_dend, k = 2), show_row_names = FALSE, show_column_names = FALSE)
 ```
- 
-
 
 
