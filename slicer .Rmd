@@ -14,12 +14,12 @@ library(lle)
 
 ```{r}
 # finding the number of initial clusters for reconstructing the trajectory
-k = select_k(top_genes_norm, kmin = 3)
+k = select_k(top_genes, kmin = 3)
 ```
 ```{r}
 # performing LLE a form of dimensionality reduction on the gene expression data
 # m = 3 bc that is the number of dimensions used in the figures in the paper 
-traj_lle = lle(top_genes_norm, m=3, k)$Y
+traj_lle = lle(top_genes, m=3, k)$Y
 ```
 
 
@@ -30,16 +30,17 @@ traj_graph = conn_knn_graph(traj_lle, k)
 ```{r}
 # constructing the cell order and finding branches in the trajectory 
 ends = find_extreme_cells(traj_graph, traj_lle)
-start = 1 # needs to be changed to a known cardiac fibroblast 
+start = 402 # needs to be changed to a known cardiac fibroblast 
 cells_ordered = cell_order(traj_graph, start)
 graph_process_distance(traj_graph,traj_lle,start)
-branches = assign_branches(traj_graph,start, min_branch_len = 30)
+branches = assign_branches(traj_graph,20, min_branch_len = 10)
 ```
 
 
-
 ```{r}
-distances = process_distance(traj_graph, 192)
+distances_inactive = process_distance(traj_graph, 402) / 5.044693
+distances_active = process_distance(traj_graph, 346) / 9.541308
+
 ```
 ```{r}
 scatterplot3d(traj_lle[,1],traj_lle[,3],traj_lle[,2], grid = FALSE)
@@ -57,19 +58,55 @@ plot3d(traj_lle[,1],traj_lle[,3],traj_lle[,2],type = "s", size = 1, lit = TRUE)
 
 ```{r}
 lle_df = data.frame(traj_lle )
-lle_df$dist = as.double(t(distances))
+lle_df$pseudotime = as.double(t(distances_inactive))
+lle_df$active = "CCI"
+lle_df[active_cell_numbers,4] = as.double(t(distances_active))[active_cell_numbers]
+lle_df[active_cell_numbers,5] = "CCA"
+lle_df$active = as.factor(lle_df$active)
+lle_df$ident = identified_cells$GroupID_Fig1a
 ```
 
 
 ```{r}
-fig <- plot_ly(lle_df, x = ~X1, y = ~X2, z = ~X3, marker = list(color = ~dist, colorscale = c('#FFE1A1', '#683531'), showscale = TRUE))
+
+axx <- list(
+  title = "LLE 1"
+)
+
+axy <- list(
+  title = "LLE 2"
+)
+
+axz <- list(
+  title = "LLE 3"
+)
+
+fig <- plot_ly(lle_df, x = ~X1, y = ~X2, z = ~X3, marker = list(size = 6), symbol = ~active, symbols = c("diamond", "circle") )
+fig <- fig %>% add_markers(color = ~pseudotime, colors = c('black', 'red', 'orange', 'yellow'))
+fig <- fig %>% layout(scene = list(aspectmode = "cube", xaxis=axx,yaxis=axy,zaxis=axz))
+
+fig
+```
+```{r}
+ inactive_cell_rows = !(1:nrow(lle_df)  %in% active_cell_numbers )
+lle_df[inactive_cell_rows,]
+```
+
+
+
+```{r}
+fig <- plot_ly(lle_df, x = ~X1, y = ~X2, z = ~X3, color = ~ident)
 fig <- fig %>% add_markers()
 fig <- fig %>% layout(scene = list(aspectmode = "cube"))
 fig
 ```
-
 ```{r}
-plot(traj_lle,pch=16,col=branches)
-
+active_cells
+top_genes_test = as.data.frame(top_genes)
+top_genes_test$row_number = 1:nrow(top_genes_test)
+active_cell_numbers = top_genes_test[active_cells,401]
 ```
+
+
+
 

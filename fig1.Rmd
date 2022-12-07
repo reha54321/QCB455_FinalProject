@@ -269,3 +269,9 @@ Heatmap(t(top_genes_scale), name = "test",
 ```
 
 
+```{r}
+cell_clusters <- cutree(row_dend, k = 3)
+active_cells = rownames(top_genes_scale)[cell_clusters == 1]
+
+```
+
