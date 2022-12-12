@@ -38,21 +38,14 @@ branches = assign_branches(traj_graph,20, min_branch_len = 10)
 
 
 ```{r}
-distances_inactive = process_distance(traj_graph, 402) / 5.044693
+distances_inactive = process_distance(traj_graph, 402) / 5.241427
 distances_active = process_distance(traj_graph, 346) / 9.541308
 
-```
-```{r}
-scatterplot3d(traj_lle[,1],traj_lle[,3],traj_lle[,2], grid = FALSE)
 ```
 
 ```{r}
 library(rgl)
 library(plotly)
-```
-
-```{r}
-plot3d(traj_lle[,1],traj_lle[,3],traj_lle[,2],type = "s", size = 1, lit = TRUE) 
 ```
 
 
@@ -64,6 +57,12 @@ lle_df[active_cell_numbers,4] = as.double(t(distances_active))[active_cell_numbe
 lle_df[active_cell_numbers,5] = "CCA"
 lle_df$active = as.factor(lle_df$active)
 lle_df$ident = identified_cells$GroupID_Fig1a
+lle_df$ident_2 = cell_categorized$stage
+
+active_cells
+top_genes_test = as.data.frame(top_genes)
+top_genes_test$row_number = 1:nrow(top_genes_test)
+active_cell_numbers = top_genes_test[active_cells,401]
 ```
 
 
@@ -88,24 +87,30 @@ fig <- fig %>% layout(scene = list(aspectmode = "cube", xaxis=axx,yaxis=axy,zaxi
 fig
 ```
 ```{r}
- inactive_cell_rows = !(1:nrow(lle_df)  %in% active_cell_numbers )
+inactive_cell_rows = !(1:nrow(lle_df)  %in% active_cell_numbers )
 lle_df[inactive_cell_rows,]
 ```
 
 
 
 ```{r}
-fig <- plot_ly(lle_df, x = ~X1, y = ~X2, z = ~X3, color = ~ident)
-fig <- fig %>% add_markers()
-fig <- fig %>% layout(scene = list(aspectmode = "cube"))
+axx <- list(
+  title = "LLE 1"
+)
+
+axy <- list(
+  title = "LLE 2"
+)
+
+axz <- list(
+  title = "LLE 3"
+)
+fig <- plot_ly(lle_df, x = ~X1, y = ~X2, z = ~X3, color = ~ident_2, marker = list(size = 6), symbol = ~active, symbols = c("diamond", "circle") )
+fig <- fig %>% add_markers(colors = c('blue', 'red', 'purple', 'lightgreen'))
+fig <- fig %>% layout(scene = list(aspectmode = "cube", xaxis=axx,yaxis=axy,zaxis=axz))
 fig
 ```
-```{r}
-active_cells
-top_genes_test = as.data.frame(top_genes)
-top_genes_test$row_number = 1:nrow(top_genes_test)
-active_cell_numbers = top_genes_test[active_cells,401]
-```
+
 
 
 

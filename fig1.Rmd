@@ -99,132 +99,18 @@ correct_genes = read_csv("correct_genes.csv", col_names = FALSE)
 ```{r}
 top_genes = exp_log2[our_genes,] %>% data.frame()
 top_genes = t(top_genes) 
-```
-
-# old clustering stuff
-## clustering our top genes into a tree 
-
-```{r}
-# testing out clustering of the non normalize dgenes 
-#top_genes = exp_log2[our_genes,] %>% data.frame()
-#top_genes = t(top_genes) 
-#SNN = SNN.Construction(mat = t(top_genes), k = 3, threshold = 0.1)
-#Clustering_Tree = HGC.dendrogram(SNN)
-#HGC.PlotDendrogram(tree = Clustering_Tree,
-           #         k = 3, plot.label = FALSE)
-```
-
-```{r}
-#SNN = SNN.Construction(mat = top_genes_norm, k = 3, threshold = 0.15)
-#Clustering_Tree = HGC.dendrogram(SNN)
-#HGC.PlotDendrogram(tree = Clustering_Tree,
-                  #  k = 3, plot.label = FALSE)
-#cell_clusters <- cutree(Clustering_Tree, k = 3)
-
-```
-
-```{r}
-#active_cells = rownames(top_genes_log)[cell_clusters == 1]
-```
-
-```{r}
-# normalizing the genes 
- require(pheatmap)
- normalize = function(x) {
-   (x - mean(x)) / (sd(x))
- }
-#top_genes_log = (log(top_genes + 1e-6)) %>% data.frame()
-#top_genes_norm = t(scale(t(log(top_genes + 1e-6)))) %>% data.frame()
-# pheatmap(mat = top_genes_norm, cluster_rows = Clustering_Tree, 
-#         cluster_cols = FALSE, show_rownames = FALSE)
-```
-
-```{r}
-
-# 2d clustering 
-#SNN_row = SNN.Construction(mat = top_genes_scale, k = 2, threshold = 0.15)
-#Clustering_Tree_row = HGC.dendrogram(SNN_row)
-#SNN_col = SNN.Construction(mat = t(top_genes_scale), k = 3, threshold = 0.15)
-#Clustering_Tree_col = HGC.dendrogram(SNN_col)
-
-#dd.row = as.dendrogram(Clustering_Tree_row)
-#row.ord = order.dendrogram(dd.row)
-
-#dd.col = as.dendrogram(Clustering_Tree_col)
-#col.ord = order.dendrogram(dd.col)
-#HGC.PlotDendrogram(tree = Clustering_Tree_col, k = 4, plot.label = FALSE)
-```
-
-```{r}
 top_genes_scale = scale(top_genes)
 ```
 
-## Gene ontology anlaysis 
-
-```{r}
-# cutting the genes in the 3 clusters and performing gene ontology analysis 
-#clusters <- cutree(Clustering_Tree_col, k = 3)
-#cluster1 = colnames(top_genes_scale)[clusters == 1]
-#GO_results_cluster1 <- enrichGO(gene = cluster1, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
-#as.data.frame(GO_results_cluster1)
-
-#cluster2 = colnames(top_genes_scale)[clusters == 2]
-#GO_results_cluster2 <- enrichGO(gene = cluster2, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
-#as.data.frame(GO_results_cluster2)
-
-#cluster3 = colnames(top_genes_scale)[clusters == 3]
-#GO_results_cluster3 <- enrichGO(gene = cluster3, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = #"BP")
-#as.data.frame(GO_results_cluster3)
-```
-
-```{r}
-#fit <- plot(barplot(GO_results_cluster1, showCategory = 15))
-#fit <- plot(barplot(GO_results_cluster2, showCategory = 15))
-#fit <- plot(barplot(GO_results_cluster3, showCategory = 15))
-
-#png("out.png", res = 250, width = 1400, height = 1800)
-#print(fit)
-#dev.off()
-#fit
-```
-
-```{r}
-# defining gene labels to put on the heat map -- WIP 
-#gene_labeling = data.frame(matrix(ncol = 1, nrow = length(colnames(top_genes_scale))))
-#colnames(gene_labeling) = "label"
-#rownames(gene_labeling) = colnames(top_genes_scale)
-#gene_labeling[cluster1,] = "cm"
-#gene_labeling[cluster3,] = "fib"
-#gene_labeling[cluster2,] = "cc"
-
-#gene_labeling[col.ord, ]
-
-#gene_labeling['Ect2',]
-```
-
-
-## Plots 
-
-```{r}
-# plotting the data on lattice level plot 
-#top_genes_norm_mat = as.matrix(top_genes_scale)
-
-#levelplot(top_genes_norm_mat[row.ord, col.ord],
-  #    aspect = "fill",
-  #    scales = list(x = list(rot = 90)),
-  #    colorkey = list(space = "left"), 
-  #    col.regions = colorRampPalette(c("royalblue", "white", "red")))
-
-                                     
-                                     
-# heat.colors(100))
-```
 
 # fixed clustering
 ```{r}
 row_dend = hclust(dist(top_genes_scale)) # row clustering
 col_dend = hclust(dist(t(top_genes_scale))) # column clustering
 ```
+
+# Gene ontology analysis 
+
 ```{r}
 clusters <- cutree(col_dend, k = 3)
 cluster1 = colnames(top_genes_scale)[clusters == 1]
@@ -244,9 +130,9 @@ as.data.frame(GO_results_cluster3)
 ```{r}
 dd.col = as.dendrogram(col_dend)
 col.ord = order.dendrogram(dd.col)
-fit <- plot(barplot(GO_results_cluster1, showCategory = 15))
-fit <- plot(barplot(GO_results_cluster2, showCategory = 15))
-fit <- plot(barplot(GO_results_cluster3, showCategory = 15))
+fit <- plot(barplot(GO_results_cluster1, showCategory = 6))
+fit <- plot(barplot(GO_results_cluster2, showCategory = 6))
+fit <- plot(barplot(GO_results_cluster3, showCategory = 6))
 
 gene_labeling = data.frame(matrix(ncol = 1, nrow = length(colnames(top_genes_scale))))
 colnames(gene_labeling) = "label"
@@ -262,16 +148,64 @@ gene_labeling[col.ord, ]
 
 
 
+# heatmap of results 
+
 ```{r}
 Heatmap(t(top_genes_scale), name = "test", 
         cluster_rows = color_branches(col_dend, k = 3),
-        cluster_columns = color_branches(row_dend, k = 2), show_row_names = FALSE, show_column_names = FALSE)
+        cluster_columns = color_branches(row_dend, k = 30, col = c("darkred", "forestgreen", "orange", "blue")), show_row_names = FALSE, show_column_names = FALSE)
+```
+# active cells categorization for other analysi 
+
+```{r}
+cell_clusters <- cutree(row_dend, k = 2)
+active_cells = rownames(top_genes_scale)[cell_clusters == 1]
+
 ```
 
 
 ```{r}
-cell_clusters <- cutree(row_dend, k = 3)
-active_cells = rownames(top_genes_scale)[cell_clusters == 1]
+cell_categorizations = cutree(row_dend, k = 30, order_clusters_as_data = FALSE)
+```
+
+# categorizing all of the cells for further analysis
+```{r}
+CCA_iCM = names(cell_categorizations[cell_categorizations == 1 | cell_categorizations == 2])
+CCA_Fib = names(cell_categorizations[cell_categorizations == 3 | cell_categorizations == 4 | cell_categorizations == 5 | cell_categorizations == 6 | cell_categorizations == 7 | cell_categorizations == 8 | cell_categorizations == 9 ])
+CCA_iFib = names(cell_categorizations[cell_categorizations == 10 | cell_categorizations == 11 | cell_categorizations == 12 | cell_categorizations == 13 | cell_categorizations == 14 ])
+CCI_piCM = names(cell_categorizations[cell_categorizations == 15  | cell_categorizations == 16 | cell_categorizations == 17 | cell_categorizations == 18 | cell_categorizations == 23])
+CCI_iCM = names(cell_categorizations[cell_categorizations == 19  | cell_categorizations == 20])
+CCI_iFib = names(cell_categorizations[cell_categorizations == 21  | cell_categorizations == 22 |  cell_categorizations == 26 | cell_categorizations == 27 |  cell_categorizations == 28|  cell_categorizations == 29])
+CCI_Fib = names(cell_categorizations[cell_categorizations == 24  | cell_categorizations == 25| cell_categorizations == 30 ])
+
 
 ```
+
+```{r}
+cell_categorized = data.frame(name= rownames(top_genes_scale), cat = "CCI", stage = "FIB")
+cell_categorized[cell_categorized$name %in% CCA_Fib,2] = "CCAFib"
+cell_categorized[cell_categorized$name %in% CCA_iFib,2] = "CCAiFib"
+cell_categorized[cell_categorized$name %in% CCA_iCM,2] = "CCAiCM"
+cell_categorized[cell_categorized$name %in% CCI_iFib,2] = "CCIiFib"
+cell_categorized[cell_categorized$name %in% CCI_Fib,2] = "CCIFib"
+cell_categorized[cell_categorized$name %in% CCI_piCM,2] = "CCIipCM"
+cell_categorized[cell_categorized$name %in% CCI_iCM,2] = "CCIiCM"
+
+cell_categorized[cell_categorized$name %in% CCA_Fib,3] = "Fib"
+cell_categorized[cell_categorized$name %in% CCA_iFib,3] = "iFib"
+cell_categorized[cell_categorized$name %in% CCA_iCM,3] = "iCM"
+cell_categorized[cell_categorized$name %in% CCI_iFib,3] = "iFib"
+cell_categorized[cell_categorized$name %in% CCI_Fib,3] = "Fib"
+cell_categorized[cell_categorized$name %in% CCI_piCM,3] = "ipCM"
+cell_categorized[cell_categorized$name %in% CCI_iCM,3] = "iCM"
+```
+```{r}
+write.csv(cell_categorized, "categorized_cells.csv" , row.names = FALSE)
+```
+
+
+
+
+
+
 
