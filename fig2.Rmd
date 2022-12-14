@@ -1,0 +1,177 @@
+---
+title: "Figure 2"
+author: "Kenny Huang"
+date: "12/14/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, cache = TRUE, autodep = TRUE, message = FALSE, warning = FALSE)
+```
+
+```{r}
+library(dplyr)
+library(tidyverse)
+library(ComplexHeatmap)
+library(dendextend)
+library(clusterProfiler)
+library(org.Mm.eg.db)
+```
+
+```{r}
+exp = readr::read_csv("normalized_data.csv")
+exp = discard(exp,~all(is.na(.) |.  == ""))
+exp = distinct(exp, `...1`, .keep_all = TRUE)
+# filtering out the reprogramming transcription factors 
+# exp = filter(exp, !`...1`%in% c("Mef2c", "Gata4", "Tbx5"))
+exp = column_to_rownames(exp, var="...1")
+```
+
+```{r}
+exp_log2 = log2(exp)
+exp_log2[exp_log2 < 0] <- 0
+correct_genes = read_csv("correct_genes.csv", col_names = FALSE)
+top_genes = exp_log2[correct_genes$X1,]
+top_genes = t(top_genes)
+top_genes_scale = scale(top_genes) %>% t() %>% data.frame()
+some_cells = top_genes_scale %>% select(starts_with(c('M1', 'M2', 'C1')))
+some_cells %>% colnames()
+```
+
+# Clustering by genes (5 types)
+
+```{r}
+row_dend = hclust(dist(some_cells))
+clusters <- cutree(row_dend, k = 5)
+
+cluster1 = rownames(some_cells)[clusters == 1]
+cluster2 = rownames(some_cells)[clusters == 2]
+cluster3 = rownames(some_cells)[clusters == 3]
+cluster4 = rownames(some_cells)[clusters == 4]
+cluster5 = rownames(some_cells)[clusters == 5]
+
+dd.row = as.dendrogram(row_dend)
+row.ord = order.dendrogram(dd.row)
+
+gene_labeling = data.frame(matrix(ncol = 1, nrow = nrow(some_cells)))
+colnames(gene_labeling) = "label"
+rownames(gene_labeling) = rownames(top_genes_scale)
+gene_labeling[cluster1,] = "type 1"
+gene_labeling[cluster2,] = "type 2"
+gene_labeling[cluster3,] = "type 3"
+gene_labeling[cluster4,] = "type 4"
+gene_labeling[cluster5,] = "type 5"
+
+gene_labeling[row.ord, ]
+```
+
+# Clustering by cells (2 types)
+
+```{r}
+col_dend = hclust(dist(t(some_cells)))
+clusters2 <- cutree(col_dend, k = 2)
+
+cluster_cca = colnames(some_cells)[clusters2 == 1]
+cluster_cci = colnames(some_cells)[clusters2 == 2]
+
+dd.col = as.dendrogram(col_dend)
+col.ord = order.dendrogram(dd.col)
+
+cell_labeling = data.frame(matrix(ncol = 1, nrow = ncol(some_cells)))
+colnames(cell_labeling) = "label"
+rownames(cell_labeling) = colnames(some_cells)
+cell_labeling[cluster_cca,] = "cca"
+cell_labeling[cluster_cci,] = "cci"
+
+cell_labeling[col.ord, ]
+```
+
+# Clustering by cells (5 types)
+
+```{r}
+col_dend2 = hclust(dist(t(some_cells)))
+clusters3 <- cutree(col_dend2, k = 5)
+
+cluster_cca1 = colnames(some_cells)[clusters3 == 1]
+cluster_cca2 = colnames(some_cells)[clusters3 == 2]
+cluster_cci1 = colnames(some_cells)[clusters3 == 3]
+cluster_cci2 = colnames(some_cells)[clusters3 == 4]
+cluster_cci3 = colnames(some_cells)[clusters3 == 5]
+
+dd.col2 = as.dendrogram(col_dend2)
+col.ord2 = order.dendrogram(dd.col2)
+
+cell_labeling2 = data.frame(matrix(ncol = 1, nrow = ncol(some_cells)))
+colnames(cell_labeling2) = "label"
+rownames(cell_labeling2) = colnames(some_cells)
+cell_labeling2[cluster_cca1,] = "cca1"
+cell_labeling2[cluster_cca2,] = "cci1"
+cell_labeling2[cluster_cci1,] = "cci2"
+cell_labeling2[cluster_cci2,] = "cci3"
+cell_labeling2[cluster_cci3,] = "cca2"
+
+cell_labeling2[col.ord2, ]
+```
+
+# PCA from Figure 2b
+
+```{r}
+genes_pca <- prcomp(t(some_cells), center = TRUE, scale. = TRUE)
+# genes_pca %>% summary()
+ggbiplot::ggbiplot(genes_pca, var.axes = FALSE, group=cell_labeling2$label, obs.scale = 1, var.scale = 1,
+     varname.size = 3, labels.size=3) +
+scale_color_manual(name="Cell Type", values=c("blue", "red", "green", "orange", "purple"))
+```
+# Heatmap from Figure 2a
+
+```{r}
+Heatmap(some_cells, name = "test", 
+        cluster_rows = color_branches(row_dend, k = 5),
+        cluster_columns = color_branches(col_dend, k = 5, col = c("darkred", "forestgreen", "orange", "blue")), show_row_names = FALSE, show_column_names = FALSE)
+```
+
+# P-value plots from Figure 2a
+
+```{r}
+GO_results_cluster1 <- enrichGO(gene = cluster1, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
+GO_results_cluster2 <- enrichGO(gene = cluster2, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
+GO_results_cluster3 <- enrichGO(gene = cluster3, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
+GO_results_cluster4 <- enrichGO(gene = cluster4, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
+GO_results_cluster5 <- enrichGO(gene = cluster5, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
+fit <- plot(barplot(GO_results_cluster1, showCategory = 6))
+fit <- plot(barplot(GO_results_cluster2, showCategory = 6))
+fit <- plot(barplot(GO_results_cluster3, showCategory = 6))
+fit <- plot(barplot(GO_results_cluster4, showCategory = 6))
+fit <- plot(barplot(GO_results_cluster5, showCategory = 6))
+```
+
+# Violin Plots in Figure 2a
+
+```{r}
+some_cells['Pdgfrb', ] %>% t() %>% data.frame() %>% merge(cell_labeling2, by = 0) %>% ggplot(aes(x = label, y = Pdgfrb)) + geom_violin() + labs(title = 'Pdgfrb')
+# some_cells['Tbx20', ] %>% t() %>% data.frame() %>% merge(cell_labeling2, by = 0) %>% ggplot(aes(x = label, y = Tbx20)) + geom_violin() + labs(title = 'Tbx20')
+
+# some_cells['Colla1', ] %>% t() %>% data.frame() %>% merge(cell_labeling2, by = 0) %>% ggplot(aes(x = label, y = Colla1)) + geom_violin() + labs(title = 'Colla1')
+some_cells['Acta2', ] %>% t() %>% data.frame() %>% merge(cell_labeling2, by = 0) %>% ggplot(aes(x = label, y = Acta2)) + geom_violin() + labs(title = 'Acta2')
+
+some_cells['Ccnb1', ] %>% t() %>% data.frame() %>% merge(cell_labeling2, by = 0) %>% ggplot(aes(x = label, y = Ccnb1)) + geom_violin() + labs(title = 'Ccnb1')
+some_cells['Mki67', ] %>% t() %>% data.frame() %>% merge(cell_labeling2, by = 0) %>% ggplot(aes(x = label, y = Mki67)) + geom_violin() + labs(title = 'Mki67')
+
+# some_cells['Msln', ] %>% t() %>% data.frame() %>% merge(cell_labeling2, by = 0) %>% ggplot(aes(x = label, y = Msln)) + geom_violin() + labs(title = 'Msln')
+# some_cells['Wt1', ] %>% t() %>% data.frame() %>% merge(cell_labeling2, by = 0) %>% ggplot(aes(x = label, y = Wt1)) + geom_violin() + labs(title = 'Wt1')
+
+# some_cells['Pecam1', ] %>% t() %>% data.frame() %>% merge(cell_labeling2, by = 0) %>% ggplot(aes(x = label, y = Pecam1)) + geom_violin() + labs(title = 'Pecam1')
+# some_cells['Cdh5', ] %>% t() %>% data.frame() %>% merge(cell_labeling2, by = 0) %>% ggplot(aes(x = label, y = Cdh5)) + geom_violin() + labs(title = 'Cdh5')
+```
+
+```{r}
+some_cells %>% rownames()
+```
+
+
+
+
+
+
+
+

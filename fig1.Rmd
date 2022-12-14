@@ -237,6 +237,7 @@ cell_categorized[cell_categorized$name %in% CCI_Fib,3] = "Fib"
 cell_categorized[cell_categorized$name %in% CCI_piCM,3] = "ipCM"
 cell_categorized[cell_categorized$name %in% CCI_iCM,3] = "iCM"
 ```
+
 ```{r}
 write.csv(cell_categorized, "categorized_cells.csv" , row.names = FALSE)
 ```
