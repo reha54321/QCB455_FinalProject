@@ -96,12 +96,50 @@ correct_genes = read_csv("correct_genes.csv", col_names = FALSE)
 (our_genes %in% correct_genes$X1) %>% mean()
 
 ```
+
 ```{r}
 top_genes = exp_log2[our_genes,] %>% data.frame()
 top_genes = t(top_genes) 
 top_genes_scale = scale(top_genes)
 ```
 
+# PCA Graphs
+
+```{r}
+states = readr::read_csv("paper_cell_states.csv")
+states = column_to_rownames(states, var="Cell_ID")
+states = states[rownames(top_genes_scale),]
+stage = states$stage
+stage[stage == "IFib"] = "Fib"
+stage[stage == "AFib"] = "Fib"
+stage[stage == "IiCM"] = "iCM"
+stage[stage == "AiCM"] = "iCM"
+
+```
+
+```{r}
+states2 = readr::read_csv("categorized_cells_1.csv")
+states2 = column_to_rownames(states2, var="name")
+stage2 = states2[rownames(top_genes_scale),]
+stage2 = substr(stage2, 4, 8)
+
+```
+
+```{r}
+genes_pca <- prcomp(t(top_genes_scale), center = TRUE, scale. = TRUE)
+genes_pca %>% summary()
+ggbiplot::ggbiplot(genes_pca, var.axes = FALSE, obs.scale = 1, var.scale = 1, group=gene_labeling$label,
+     varname.size = 3, labels.size=3) +
+scale_color_manual(name="Gene Type", values=c("blue", "orange", "red"))
+```
+
+```{r}
+cells_pca <- prcomp(top_genes_scale, center = TRUE, scale. = TRUE)
+cells_pca %>% summary()
+ggbiplot::ggbiplot(cells_pca, var.axes = FALSE, obs.scale = 1, var.scale = 1, group=stage2,
+     varname.size = 3, labels.size=3) +
+scale_color_manual(name="Cell Type", values=c("blue", "red", "purple", "lightgreen"))
+```
 
 # fixed clustering
 ```{r}
