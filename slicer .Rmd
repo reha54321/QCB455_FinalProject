@@ -1,6 +1,7 @@
 ---
-title: "R Notebook"
+title: "SLICER Code"
 output: html_notebook
+author: "Reha Mathur" 
 ---
 
 ```{r}
@@ -33,7 +34,6 @@ ends = find_extreme_cells(traj_graph, traj_lle)
 start = 402 # needs to be changed to a known cardiac fibroblast 
 cells_ordered = cell_order(traj_graph, start)
 graph_process_distance(traj_graph,traj_lle,start)
-branches = assign_branches(traj_graph,20, min_branch_len = 10)
 ```
 
 

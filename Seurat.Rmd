@@ -1,12 +1,9 @@
 ---
-title: "R Notebook"
+title: "Seurat Cell Categorization"
+author: "Reha Mathur"
 output: html_notebook
 ---
-
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
-
+## importing packages 
 ```{r}
 library("devtools")
 install_github("jw156605/SLICER")
@@ -21,8 +18,7 @@ library(clusterProfiler)
 library(org.Mm.eg.db)
 library(AnnotationDbi)
 ```
-
-
+## reading in normalized data again
 ```{r}
 exp = read_csv("normalized_data.csv")
 exp = discard(exp,~all(is.na(.) |.  == ""))
@@ -32,11 +28,13 @@ exp = filter(exp, !`...1`%in% c("Mef2c", "Gata4", "Tbx5"))
 exp = column_to_rownames(exp, var="...1")
 
 ```
-```{r}
+## creating a seurat object with all of the cells 
 
+```{r}
 seurat.obj = CreateSeuratObject(counts = exp)
 ```
 ```{r}
+# using seurat to noramlize, scale and dimensionally reduce the data 
 seurat.obj = NormalizeData(seurat.obj)
 seurat.obj = FindVariableFeatures(seurat.obj, selection.method =  "vst", nfeatures = 10000)
 all.genes = rownames(seurat.obj)
@@ -45,9 +43,10 @@ seurat.obj = RunPCA(seurat.obj, features =  VariableFeatures(seurat.obj))
 
 ```
 ```{r}
+# elbow plot to see the correct number of dimensions
 ElbowPlot(seurat.obj)
 ```
-
+## Seurat clustering the entire graph to see what clusters are identified 
 ```{r}
 seurat.obj = FindNeighbors(seurat.obj, dims = 1:15)
 ```
@@ -55,6 +54,7 @@ seurat.obj = FindNeighbors(seurat.obj, dims = 1:15)
 ```{r}
 seurat.obj = FindClusters(seurat.obj, resolution = 1.75)
 ```
+## importing the results from the paper and our hierarchical clustering results for further comparison
 ```{r}
 identified_cells = read.csv("paper_cell_states.csv", row.names = 1, header=TRUE)
 ```
@@ -71,18 +71,20 @@ seurat.obj@meta.data[active_cells,]$cc_hclust = "CCA"
 ```{r}
 Idents(seurat.obj)  = "RNA_snn_res.1.75"
 ```
-
+## running UMAP dimensional reduction on the data to plot the data 
 ```{r}
 seurat.obj = RunUMAP(seurat.obj, dims = 1:15)
 ```
+# seeing what tsne reduction makes the data do 
 ```{r}
 seurat.obj = RunTSNE(seurat.obj, dims = 1:15)
 DimPlot(seurat.obj, reduction = "tsne", group.by = 'RNA_snn_res.1.75')
 ``` 
-
+# finding differentially expressed markers in these clusters
 ```{r}
 markers = FindAllMarkers(seurat.obj, logfc.threshold =  0.25, min.pct = 0.1, only.pos = FALSE, test.use = 'MAST')
 ```
+# top markers for the clusters of all of the cells and violin plots of their expression 
 ```{r}
 top_markers = markers %>%
     group_by(cluster) %>%
@@ -90,14 +92,12 @@ top_markers = markers %>%
 ```
 
 ```{r}
-FeaturePlot(seurat.obj, features = c("Dhrs3"), min.cutoff = 'q10')
-```
-```{r}
 VlnPlot(seurat.obj, features = c("Rbp1", "Dhrs3"))
 VlnPlot(seurat.obj, features = c("Fstl1", "Bgn"))
 VlnPlot(seurat.obj, features = c("Serpinh1", "Dsp"))
 VlnPlot(seurat.obj, features = c("Prc1", "Birc5"))
 ```
+## categorizing the cells based off their cell cycle analysis 
 ```{r}
 ## cell cycle 
 s.genes <- str_to_title(cc.genes$s.genes)
@@ -108,7 +108,7 @@ seurat.obj@meta.data$cat_cluster = cell_categorized$stage
 
 ```
 
-
+## plotting the comparison of the cell cycle results
 ```{r}
 clusters = DimPlot(seurat.obj, group.by = "RNA_snn_res.1.75", label = TRUE, reduction = "umap")
 real_condition = DimPlot(seurat.obj, group.by = "cc_paper", label = TRUE, reduction = "umap") 
@@ -137,8 +137,6 @@ cci_seurat = subset(x = seurat.obj, subset = Phase == "G1")
 cci_seurat = FindNeighbors(cci_seurat, dims = 1:15)
 cci_seurat = FindClusters(cci_seurat, resolution = 1)
 ```
-```{r}
-```
 
 ```{r}
 cl= DimPlot(cci_seurat, group.by = "RNA_snn_res.1",label = TRUE)
@@ -166,14 +164,10 @@ VlnPlot(cci_seurat, features = c("Clca2", "Cd200"), cols = c("purple", "light gr
 VlnPlot(cci_seurat, features = c("Lox", "Tm4sf1"), cols = c("purple", "light green", "red", "blue"))
 
 ```
-#### 
 
 Fstl1 involved in endothelial cell differentiation and endothelial cell migration and Bgn is a gene that is used for connective tissue metabolism -> lower expression -> cluster 1 = iCM, cluster 2 likely pICM
 
 Tnni3, smpx, dsp used for cardiomycoytes -> cluster 2 = pre-iCM, cluster 1 and 3 are still fibroblasts 
-
-cluseter 1 further away from cluster 0 = fibroblastr
-clusetr 3 = induced fibroblasts
 
 ```{r}
 Idents(cci_seurat)  = "RNA_snn_res.1"
@@ -192,7 +186,6 @@ hgc = DimPlot(cci_seurat, group.by = "cat_cluster", label = TRUE, cols = c("blue
 cl|pap|hgc
 ```
 ## clustering CCA cells
-
 
 ```{r}
 cca_seurat = FindNeighbors(cca_seurat, dims = 1:15)
@@ -216,19 +209,14 @@ cca_top_markers = cca_markers %>%
 ```
 
 ```{r}
-
 VlnPlot(cca_seurat, features = c("Fstl1", "Bgn"), cols = c("blue", "purple", "light green", "red"))
 VlnPlot(cca_seurat, features = c("Tnni3", "Smpx"), cols = c("blue", "purple", "light green", "red"))
 VlnPlot(cca_seurat, features = c("Vcam1", "Tm4sf1"), cols = c("blue", "purple", "light green", "red"))
 VlnPlot(cca_seurat, features = c("Clca2", "Cd200"), cols = c("blue", "purple", "light green", "red"))
-
-
 ```
 #### 
 
-dab2 involved in endothelial stuf -> 0 is probably induced cardiomyocyet
-Upk1b is involved in epithelial stuff -> 2 is porbably fibroblasts 
-1 - induced fibroblasts
+Tnni3 related to heart fucntion -> iCM= 2 
 
 ```{r}
 Idents(cca_seurat)  = "RNA_snn_res.1"
@@ -236,7 +224,6 @@ cca_seurat = RenameIdents(cca_seurat, `2` = "iCM")
 cca_seurat = RenameIdents(cca_seurat, `1` = "1")
 cca_seurat = RenameIdents(cca_seurat, `0` = "0")
 cca_seurat = RenameIdents(cca_seurat, `3` = "3")
-
 ```
 
 ```{r}
@@ -247,7 +234,7 @@ cl|pap|hgc
 
 ```
 
-## SC Transform       
+## Trying out SCTransform which is supposedly better for single cell data
 ```{r}
 seurat.sc = CreateSeuratObject(counts = exp)
 seurat.sc = SCTransform(seurat.sc)
@@ -280,3 +267,4 @@ clusters|real_condition|phase|cat
 
 ```
 
+The results are largely the same so just going to continue on with the original clsutering. 

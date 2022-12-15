@@ -1,5 +1,6 @@
 ---
-title: "R Notebook"
+title: "Figure 1"
+author: "Kenny Huang & Reha Mathur"
 output: html_notebook
 ---
 
@@ -39,28 +40,22 @@ library('fastcluster')
 ## reading in the expression data from the paper 
 
 ```{r}
+## Kenny wrote this 
 exp = read_csv("normalized_data.csv")
 exp = discard(exp,~all(is.na(.) |.  == ""))
 exp = distinct(exp, `...1`, .keep_all = TRUE)
 # filtering out the reprogramming transcription factors 
 exp = filter(exp, !`...1`%in% c("Mef2c", "Gata4", "Tbx5"))
 exp = column_to_rownames(exp, var="...1")
-```
-
-
-```{r}
 exp_log2 = log2(exp)
 exp_log2[exp_log2 < 0] <- 0
+exp_log2_mat = as.matrix(exp_log2)
 ```
 
 ## creating seurat object 
 
 ```{r}
-exp_log2_mat = as.matrix(exp_log2)
-```
-
-
-```{r}
+# Kenny wrote this 
 s = CreateSeuratObject(counts = exp)
 #s = NormalizeData(s)
 s = SetAssayData(object = s, slot = "scale.data", new.data = exp_log2_mat)
@@ -71,12 +66,14 @@ s <- FindVariableFeatures(s, selection.method = "vst", nfeatures = 10000)
 ## running PCA on seurat object 
 
 ```{r}
+# Kenny wrote this 
 s = RunPCA(s, features  = VariableFeatures(s))
 ```
 
 ## extracting top 400 by max weights
 
 ```{r}
+# Kenny wrote this 
 our_genes = s[["pca"]]@feature.loadings %>% 
   data.frame() %>% 
   dplyr::select(PC_1, PC_2, PC_3, PC_4) %>% 
@@ -92,12 +89,13 @@ capture.output(our_genes, file = "top_genes.txt", row.names = FALSE)
 
 ## reading in the genes that they said were in the top 400 for comparison 
 ```{r}
+# Kenny wrote this 
 correct_genes = read_csv("correct_genes.csv", col_names = FALSE)
 (our_genes %in% correct_genes$X1) %>% mean()
-
 ```
 
 ```{r}
+# Kenny wrote this 
 top_genes = exp_log2[our_genes,] %>% data.frame()
 top_genes = t(top_genes) 
 top_genes_scale = scale(top_genes)
@@ -106,6 +104,7 @@ top_genes_scale = scale(top_genes)
 # PCA Graphs
 
 ```{r}
+# Kenny wrote this 
 states = readr::read_csv("paper_cell_states.csv")
 states = column_to_rownames(states, var="Cell_ID")
 states = states[rownames(top_genes_scale),]
@@ -118,6 +117,7 @@ stage[stage == "AiCM"] = "iCM"
 ```
 
 ```{r}
+# Kenny wrote this 
 states2 = readr::read_csv("categorized_cells_1.csv")
 states2 = column_to_rownames(states2, var="name")
 stage2 = states2[rownames(top_genes_scale),]
@@ -126,6 +126,7 @@ stage2 = substr(stage2, 4, 8)
 ```
 
 ```{r}
+# Kenny wrote this 
 genes_pca <- prcomp(t(top_genes_scale), center = TRUE, scale. = TRUE)
 genes_pca %>% summary()
 ggbiplot::ggbiplot(genes_pca, var.axes = FALSE, obs.scale = 1, var.scale = 1, group=gene_labeling$label,
@@ -134,6 +135,7 @@ scale_color_manual(name="Gene Type", values=c("blue", "orange", "red"))
 ```
 
 ```{r}
+# Kenny wrote this 
 cells_pca <- prcomp(top_genes_scale, center = TRUE, scale. = TRUE)
 cells_pca %>% summary()
 ggbiplot::ggbiplot(cells_pca, var.axes = FALSE, obs.scale = 1, var.scale = 1, group=stage2,
@@ -143,6 +145,7 @@ scale_color_manual(name="Cell Type", values=c("blue", "red", "purple", "lightgre
 
 # fixed clustering
 ```{r}
+# Kenny wrote this 
 row_dend = hclust(dist(top_genes_scale)) # row clustering
 col_dend = hclust(dist(t(top_genes_scale))) # column clustering
 ```
@@ -150,6 +153,7 @@ col_dend = hclust(dist(t(top_genes_scale))) # column clustering
 # Gene ontology analysis 
 
 ```{r}
+# Reha wrote this 
 clusters <- cutree(col_dend, k = 3)
 cluster1 = colnames(top_genes_scale)[clusters == 1]
 GO_results_cluster1 <- enrichGO(gene = cluster1, OrgDb = "org.Mm.eg.db", keyType = "SYMBOL", ont = "BP")
@@ -166,6 +170,7 @@ as.data.frame(GO_results_cluster3)
 ```
 
 ```{r}
+# Reha wrote this 
 dd.col = as.dendrogram(col_dend)
 col.ord = order.dendrogram(dd.col)
 fit <- plot(barplot(GO_results_cluster1, showCategory = 6))
@@ -184,17 +189,9 @@ gene_labeling[col.ord, ]
 ```
 
 ```{r}
+# Reha wrote this 
 library("stringr") 
-```
-```{r}
-cluster1_df[1:6,]
-```
 
-```{r}
-cluster1_df[1:6,]
-```
-
-```{r}
 cluster1_df = as.data.frame(GO_results_cluster1)
 cluster1_df = cluster1_df[order(cluster1_df[,7]), ]
 p<-ggplot(data=cluster1_df[1:6,], aes(x=Description, y=Count/152*100, fill=qvalue)) +
@@ -203,8 +200,6 @@ p<-ggplot(data=cluster1_df[1:6,], aes(x=Description, y=Count/152*100, fill=qvalu
   scale_x_discrete(labels = function(x) str_wrap(x, width = 30)) + theme(legend.text = element_text(size = 30))  + labs( y = "Genes Involved (%)") + theme(legend.key.size = unit(2, 'cm'))
 p
 
-```
-```{r}
 cluster2_df = as.data.frame(GO_results_cluster2)
 cluster2_df = cluster2_df[order(cluster2_df[,7]), ]
 p<-ggplot(data=cluster2_df[1:6,], aes(x=Description, y=Count/170 *100, fill=qvalue)) +
@@ -212,8 +207,6 @@ p<-ggplot(data=cluster2_df[1:6,], aes(x=Description, y=Count/170 *100, fill=qval
   coord_flip()+scale_fill_gradient(high = "#ffcc00", low = "#fff0b3")+ theme(text = element_text(size = 50)) +theme(legend.spacing.y = unit(1.0, 'cm'))  +
   scale_x_discrete(labels = function(x) str_wrap(x, width = 30)) + theme(legend.text = element_text(size = 30))  + labs( y = "Genes Involved (%)") + theme(legend.key.size = unit(2, 'cm'))
 p
-```
-```{r}
 cluster3_df = as.data.frame(GO_results_cluster3)
 cluster3_df = cluster3_df[order(cluster3_df[,7]), ]
 p<-ggplot(data=cluster3_df[1:6,], aes(x=Description, y=Count/78 * 100, fill=qvalue)) +
@@ -227,13 +220,15 @@ p
 # heatmap of results 
 
 ```{r}
+# Kenny wrote this 
 Heatmap(t(top_genes_scale), name = "test", 
         cluster_rows = color_branches(col_dend, k = 3),
         cluster_columns = color_branches(row_dend, k = 30, col = c("darkred", "forestgreen", "orange", "blue")), show_row_names = FALSE, show_column_names = FALSE)
 ```
-# active cells categorization for other analysi 
-
+# active cells categorization for other analysis
 ```{r}
+# Kenny wrote this 
+
 cell_clusters <- cutree(row_dend, k = 2)
 active_cells = rownames(top_genes_scale)[cell_clusters == 1]
 
@@ -241,11 +236,15 @@ active_cells = rownames(top_genes_scale)[cell_clusters == 1]
 
 
 ```{r}
+# Kenny wrote this 
+
 cell_categorizations = cutree(row_dend, k = 30, order_clusters_as_data = FALSE)
 ```
 
 # categorizing all of the cells for further analysis
 ```{r}
+# Kenny wrote this 
+
 CCA_iCM = names(cell_categorizations[cell_categorizations == 1 | cell_categorizations == 2])
 CCA_Fib = names(cell_categorizations[cell_categorizations == 3 | cell_categorizations == 4 | cell_categorizations == 5 | cell_categorizations == 6 | cell_categorizations == 7 | cell_categorizations == 8 | cell_categorizations == 9 ])
 CCA_iFib = names(cell_categorizations[cell_categorizations == 10 | cell_categorizations == 11 | cell_categorizations == 12 | cell_categorizations == 13 | cell_categorizations == 14 ])
@@ -258,6 +257,8 @@ CCI_Fib = names(cell_categorizations[cell_categorizations == 24  | cell_categori
 ```
 
 ```{r}
+# Kenny wrote this 
+
 cell_categorized = data.frame(name= rownames(top_genes_scale), cat = "CCI", stage = "FIB")
 cell_categorized[cell_categorized$name %in% CCA_Fib,2] = "CCAFib"
 cell_categorized[cell_categorized$name %in% CCA_iFib,2] = "CCAiFib"
