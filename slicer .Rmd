@@ -50,6 +50,12 @@ library(plotly)
 
 
 ```{r}
+
+active_cells
+top_genes_test = as.data.frame(top_genes)
+top_genes_test$row_number = 1:nrow(top_genes_test)
+active_cell_numbers = top_genes_test[active_cells,401]
+
 lle_df = data.frame(traj_lle )
 lle_df$pseudotime = as.double(t(distances_inactive))
 lle_df$active = "CCI"
@@ -59,10 +65,6 @@ lle_df$active = as.factor(lle_df$active)
 lle_df$ident = identified_cells$GroupID_Fig1a
 lle_df$ident_2 = cell_categorized$stage
 
-active_cells
-top_genes_test = as.data.frame(top_genes)
-top_genes_test$row_number = 1:nrow(top_genes_test)
-active_cell_numbers = top_genes_test[active_cells,401]
 ```
 
 
@@ -80,9 +82,13 @@ axz <- list(
   title = "LLE 3"
 )
 
+t <- list(
+  size = 16,
+  color = "black")
+
 fig <- plot_ly(lle_df, x = ~X1, y = ~X2, z = ~X3, marker = list(size = 6), symbol = ~active, symbols = c("diamond", "circle") )
 fig <- fig %>% add_markers(color = ~pseudotime, colors = c('black', 'red', 'orange', 'yellow'))
-fig <- fig %>% layout(scene = list(aspectmode = "cube", xaxis=axx,yaxis=axy,zaxis=axz))
+fig <- fig %>% layout(scene = list(aspectmode = "cube", xaxis=axx,yaxis=axy,zaxis=axz), font = t)
 
 fig
 ```
@@ -105,9 +111,14 @@ axy <- list(
 axz <- list(
   title = "LLE 3"
 )
+
+t <- list(
+  size = 16,
+  color = "black")
+
 fig <- plot_ly(lle_df, x = ~X1, y = ~X2, z = ~X3, color = ~ident_2, marker = list(size = 6), symbol = ~active, symbols = c("diamond", "circle") )
 fig <- fig %>% add_markers(colors = c('blue', 'red', 'purple', 'lightgreen'))
-fig <- fig %>% layout(scene = list(aspectmode = "cube", xaxis=axx,yaxis=axy,zaxis=axz))
+fig <- fig %>% layout(scene = list(aspectmode = "cube", xaxis=axx,yaxis=axy,zaxis=axz), font = t)
 fig
 ```
 

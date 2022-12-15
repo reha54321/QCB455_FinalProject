@@ -104,6 +104,8 @@ s.genes <- str_to_title(cc.genes$s.genes)
 g2m.genes <- str_to_title(cc.genes$g2m.genes)
 
 seurat.obj = CellCycleScoring(seurat.obj, s.features = s.genes, g2m.features = g2m.genes)
+seurat.obj@meta.data$cat_cluster = cell_categorized$stage
+
 ```
 
 
@@ -111,19 +113,22 @@ seurat.obj = CellCycleScoring(seurat.obj, s.features = s.genes, g2m.features = g
 clusters = DimPlot(seurat.obj, group.by = "RNA_snn_res.1.75", label = TRUE, reduction = "umap")
 real_condition = DimPlot(seurat.obj, group.by = "cc_paper", label = TRUE, reduction = "umap") 
 phase = DimPlot(seurat.obj, group.by = "Phase", label = TRUE, reduction = "umap") 
-cat = DimPlot(seurat.obj, group.by = "cc_hclust", label = TRUE, reduction = "umap") 
+cat = DimPlot(seurat.obj, group.by = "cc_hclust", label = TRUE, reduction = "umap")
 
-clusters|real_condition|phase|cat
+clusters|real_condition|cat|phase
 
 
 ```
 
+
+
 ## subsetting the cells that fit with hclust and performing clustering on each group 
 
 ```{r}
-cca_seurat = subset(x = seurat.obj, subset = cc_hclust == "CCA")
-cci_seurat = subset(x = seurat.obj, subset = cc_hclust == "CCI")
-
+#cca_seurat = subset(x = seurat.obj, subset = cc_hclust == "CCA")
+#cci_seurat = subset(x = seurat.obj, subset = cc_hclust == "CCI")
+cca_seurat = subset(x = seurat.obj, subset = Phase == "S" | Phase == "G2M")
+cci_seurat = subset(x = seurat.obj, subset = Phase == "G1")
 ```
 
 ## clustering CCI cels 
@@ -132,11 +137,15 @@ cci_seurat = subset(x = seurat.obj, subset = cc_hclust == "CCI")
 cci_seurat = FindNeighbors(cci_seurat, dims = 1:15)
 cci_seurat = FindClusters(cci_seurat, resolution = 1)
 ```
+```{r}
+```
 
 ```{r}
 cl= DimPlot(cci_seurat, group.by = "RNA_snn_res.1",label = TRUE)
 pap = DimPlot(cci_seurat, group.by = "cat_paper", label = TRUE)
-cl|pap
+hgc = DimPlot(cci_seurat, group.by = "cat_cluster", label = TRUE)
+
+cl|pap|hgc
 ```
 ## identifying CCI cells 
 
@@ -150,16 +159,16 @@ cci_top_markers = cci_markers %>%
 ```
 
 ```{r}
-VlnPlot(cci_seurat, features = c("Fstl1", "Bgn"))
-VlnPlot(cci_seurat, features = c("Tnni3", "Smpx"))
-VlnPlot(cci_seurat, features = c("Serpinh1", "Dsp"))
-VlnPlot(cci_seurat, features = c("Clca2", "Rbp1"))
-VlnPlot(cci_seurat, features = c("Cfh", "B4galt1"))
+VlnPlot(cci_seurat, features = c("Fstl1", "Bgn"), cols = c("purple", "light green", "red", "blue"))
+VlnPlot(cci_seurat, features = c("Tnni3", "Smpx"), cols = c("purple", "light green", "red", "blue"))
+VlnPlot(cci_seurat, features = c("Vcam1", "Tm4sf1"), cols = c("purple", "light green", "red", "blue"))
+VlnPlot(cci_seurat, features = c("Clca2", "Cd200"), cols = c("purple", "light green", "red", "blue"))
+VlnPlot(cci_seurat, features = c("Lox", "Tm4sf1"), cols = c("purple", "light green", "red", "blue"))
 
 ```
 #### 
 
-Fstl1 involved in endothelial cell differentiation and endothelial cell migration and Bgn is a gene that is used for connective tissue metabolism -> lower expression -> cluster 0 = iCM 
+Fstl1 involved in endothelial cell differentiation and endothelial cell migration and Bgn is a gene that is used for connective tissue metabolism -> lower expression -> cluster 1 = iCM, cluster 2 likely pICM
 
 Tnni3, smpx, dsp used for cardiomycoytes -> cluster 2 = pre-iCM, cluster 1 and 3 are still fibroblasts 
 
@@ -168,16 +177,19 @@ clusetr 3 = induced fibroblasts
 
 ```{r}
 Idents(cci_seurat)  = "RNA_snn_res.1"
-cci_seurat = RenameIdents(cci_seurat, `0` = "iCM")
-cci_seurat = RenameIdents(cci_seurat, `1` = "Fib")
+cci_seurat = RenameIdents(cci_seurat, `0` = "0")
+cci_seurat = RenameIdents(cci_seurat, `1` = "iCM")
 cci_seurat = RenameIdents(cci_seurat, `2` = "piCM")
-cci_seurat = RenameIdents(cci_seurat, `3` = "iFib")
+cci_seurat = RenameIdents(cci_seurat, `3` = "3")
 
 ```
 
 ```{r}
-DimPlot(cci_seurat, label = TRUE)
+cl= DimPlot(cci_seurat, label = TRUE, cols = c("purple", "light green", "red", "blue"))
+pap = DimPlot(cci_seurat, group.by = "cat_paper", label = TRUE, cols = c("blue", "red", "purple", "light green"))
+hgc = DimPlot(cci_seurat, group.by = "cat_cluster", label = TRUE, cols = c("blue", "red", "purple", "light green"))
 
+cl|pap|hgc
 ```
 ## clustering CCA cells
 
@@ -204,9 +216,11 @@ cca_top_markers = cca_markers %>%
 ```
 
 ```{r}
-VlnPlot(cca_seurat, features = c("Dab2", "Kcnab1"))
-VlnPlot(cca_seurat, features = c("Cenpf", "Pttg1"))
-VlnPlot(cca_seurat, features = c("Upk1b", "Timp3"))
+
+VlnPlot(cca_seurat, features = c("Fstl1", "Bgn"), cols = c("blue", "purple", "light green", "red"))
+VlnPlot(cca_seurat, features = c("Tnni3", "Smpx"), cols = c("blue", "purple", "light green", "red"))
+VlnPlot(cca_seurat, features = c("Vcam1", "Tm4sf1"), cols = c("blue", "purple", "light green", "red"))
+VlnPlot(cca_seurat, features = c("Clca2", "Cd200"), cols = c("blue", "purple", "light green", "red"))
 
 
 ```
@@ -218,15 +232,18 @@ Upk1b is involved in epithelial stuff -> 2 is porbably fibroblasts
 
 ```{r}
 Idents(cca_seurat)  = "RNA_snn_res.1"
-cca_seurat = RenameIdents(cca_seurat, `0` = "iCM")
-cca_seurat = RenameIdents(cca_seurat, `1` = "iFib")
-cca_seurat = RenameIdents(cca_seurat, `2` = "Fib")
-
+cca_seurat = RenameIdents(cca_seurat, `2` = "iCM")
+cca_seurat = RenameIdents(cca_seurat, `1` = "1")
+cca_seurat = RenameIdents(cca_seurat, `0` = "0")
+cca_seurat = RenameIdents(cca_seurat, `3` = "3")
 
 ```
 
 ```{r}
-DimPlot(cca_seurat, label = TRUE)
+cl= DimPlot(cca_seurat, label = TRUE,cols = c("blue", "purple", "light green", "red"))
+pap = DimPlot(cca_seurat, group.by = "cat_paper", label = TRUE, cols = c("blue", "red", "purple", "light green"))
+hgc = DimPlot(cca_seurat, group.by = "cat_cluster", label = TRUE, cols = c("blue", "red", "purple", "light green"))
+cl|pap|hgc
 
 ```
 

@@ -145,7 +145,45 @@ gene_labeling[col.ord, ]
 
 ```
 
+```{r}
+library("stringr") 
+```
+```{r}
+cluster1_df[1:6,]
+```
 
+```{r}
+cluster1_df[1:6,]
+```
+
+```{r}
+cluster1_df = as.data.frame(GO_results_cluster1)
+cluster1_df = cluster1_df[order(cluster1_df[,7]), ]
+p<-ggplot(data=cluster1_df[1:6,], aes(x=Description, y=Count/152*100, fill=qvalue)) +
+  geom_bar(stat="identity") + 
+  coord_flip()+scale_fill_gradient(high = "#2c2f92", low = "#a0a2e2")+ theme(text = element_text(size = 50)) +      theme(legend.spacing.y = unit(1.0, 'cm'))  +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 30)) + theme(legend.text = element_text(size = 30))  + labs( y = "Genes Involved (%)") + theme(legend.key.size = unit(2, 'cm'))
+p
+
+```
+```{r}
+cluster2_df = as.data.frame(GO_results_cluster2)
+cluster2_df = cluster2_df[order(cluster2_df[,7]), ]
+p<-ggplot(data=cluster2_df[1:6,], aes(x=Description, y=Count/170 *100, fill=qvalue)) +
+  geom_bar(stat="identity") + 
+  coord_flip()+scale_fill_gradient(high = "#ffcc00", low = "#fff0b3")+ theme(text = element_text(size = 50)) +theme(legend.spacing.y = unit(1.0, 'cm'))  +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 30)) + theme(legend.text = element_text(size = 30))  + labs( y = "Genes Involved (%)") + theme(legend.key.size = unit(2, 'cm'))
+p
+```
+```{r}
+cluster3_df = as.data.frame(GO_results_cluster3)
+cluster3_df = cluster3_df[order(cluster3_df[,7]), ]
+p<-ggplot(data=cluster3_df[1:6,], aes(x=Description, y=Count/78 * 100, fill=qvalue)) +
+  geom_bar(stat="identity") + 
+  coord_flip()+scale_fill_gradient(high = "#ff3300", low = "#ffad99")+ theme(text = element_text(size = 50))   +theme(legend.spacing.y = unit(1.0, 'cm'))  +
+  scale_x_discrete(labels = function(x) str_wrap(x, width = 30)) + theme(legend.text = element_text(size = 30))  + labs( y = "Genes Involved (%)") + theme(legend.key.size = unit(2, 'cm'))
+p
+```
 
 
 # heatmap of results 
@@ -196,7 +234,7 @@ cell_categorized[cell_categorized$name %in% CCA_iFib,3] = "iFib"
 cell_categorized[cell_categorized$name %in% CCA_iCM,3] = "iCM"
 cell_categorized[cell_categorized$name %in% CCI_iFib,3] = "iFib"
 cell_categorized[cell_categorized$name %in% CCI_Fib,3] = "Fib"
-cell_categorized[cell_categorized$name %in% CCI_piCM,3] = "ipCM"
+cell_categorized[cell_categorized$name %in% CCI_piCM,3] = "piCM"
 cell_categorized[cell_categorized$name %in% CCI_iCM,3] = "iCM"
 ```
 ```{r}
