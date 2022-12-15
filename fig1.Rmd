@@ -57,10 +57,8 @@ exp_log2_mat = as.matrix(exp_log2)
 ```{r}
 # Kenny wrote this 
 s = CreateSeuratObject(counts = exp)
-#s = NormalizeData(s)
 s = SetAssayData(object = s, slot = "scale.data", new.data = exp_log2_mat)
 s <- FindVariableFeatures(s, selection.method = "vst", nfeatures = 10000)
-#s = ScaleData(s, features = rownames(s))
 ```
 
 ## running PCA on seurat object 
@@ -81,10 +79,7 @@ our_genes = s[["pca"]]@feature.loadings %>%
   slice_max(order_by = max, n = 400) %>% 
   row.names() %>% 
   sort()
-
 capture.output(our_genes, file = "top_genes.txt", row.names = FALSE)
-
-# PC_1 = PC_1 / sum(PC_1), PC_2 = PC_2 / sum(PC_2), PC_3 = PC_3 / sum(PC_3),
 ```
 
 ## reading in the genes that they said were in the top 400 for comparison 
@@ -113,7 +108,6 @@ stage[stage == "IFib"] = "Fib"
 stage[stage == "AFib"] = "Fib"
 stage[stage == "IiCM"] = "iCM"
 stage[stage == "AiCM"] = "iCM"
-
 ```
 
 ```{r}
@@ -122,7 +116,6 @@ states2 = readr::read_csv("categorized_cells_1.csv")
 states2 = column_to_rownames(states2, var="name")
 stage2 = states2[rownames(top_genes_scale),]
 stage2 = substr(stage2, 4, 8)
-
 ```
 
 ```{r}
@@ -228,23 +221,19 @@ Heatmap(t(top_genes_scale), name = "test",
 # active cells categorization for other analysis
 ```{r}
 # Kenny wrote this 
-
 cell_clusters <- cutree(row_dend, k = 2)
 active_cells = rownames(top_genes_scale)[cell_clusters == 1]
-
 ```
 
 
 ```{r}
 # Kenny wrote this 
-
 cell_categorizations = cutree(row_dend, k = 30, order_clusters_as_data = FALSE)
 ```
 
 # categorizing all of the cells for further analysis
 ```{r}
 # Kenny wrote this 
-
 CCA_iCM = names(cell_categorizations[cell_categorizations == 1 | cell_categorizations == 2])
 CCA_Fib = names(cell_categorizations[cell_categorizations == 3 | cell_categorizations == 4 | cell_categorizations == 5 | cell_categorizations == 6 | cell_categorizations == 7 | cell_categorizations == 8 | cell_categorizations == 9 ])
 CCA_iFib = names(cell_categorizations[cell_categorizations == 10 | cell_categorizations == 11 | cell_categorizations == 12 | cell_categorizations == 13 | cell_categorizations == 14 ])
@@ -252,13 +241,10 @@ CCI_piCM = names(cell_categorizations[cell_categorizations == 15  | cell_categor
 CCI_iCM = names(cell_categorizations[cell_categorizations == 19  | cell_categorizations == 20])
 CCI_iFib = names(cell_categorizations[cell_categorizations == 21  | cell_categorizations == 22 |  cell_categorizations == 26 | cell_categorizations == 27 |  cell_categorizations == 28|  cell_categorizations == 29])
 CCI_Fib = names(cell_categorizations[cell_categorizations == 24  | cell_categorizations == 25| cell_categorizations == 30 ])
-
-
 ```
 
 ```{r}
 # Kenny wrote this 
-
 cell_categorized = data.frame(name= rownames(top_genes_scale), cat = "CCI", stage = "FIB")
 cell_categorized[cell_categorized$name %in% CCA_Fib,2] = "CCAFib"
 cell_categorized[cell_categorized$name %in% CCA_iFib,2] = "CCAiFib"
